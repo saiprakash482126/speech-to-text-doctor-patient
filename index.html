@@ -1,0 +1,812 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>Live Speech Translator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background: #f0f4ff;
+  display: flex; justify-content: center; align-items: flex-start;
+  min-height: 100vh; padding: 24px 16px;
+}
+.card {
+  background: white; padding: 28px; width: 740px; max-width: 100%;
+  border-radius: 18px; box-shadow: 0 4px 32px rgba(0,0,0,0.10);
+  text-align: center;
+}
+h2 { font-size: 24px; margin-bottom: 4px; color: #1e293b; }
+.subtitle { color: #64748b; margin-bottom: 16px; font-size: 14px; }
+
+/* Language badge */
+.lang-row { display:flex; justify-content:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+.lang-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 14px; border-radius:20px; font-size:13px; font-weight:600;
+  background:#f1f5f9; color:#64748b; border:2px solid #e2e8f0; transition:all 0.3s;
+}
+.lang-badge.ar { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+.lang-badge.hi { background:#fce7f3; color:#9d174d; border-color:#f9a8d4; }
+.lang-badge.en { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.ai-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+  background:#ede9fe; color:#5b21b6; border:2px solid #c4b5fd;
+  opacity:0; transition:opacity 0.4s;
+}
+.ai-badge.visible { opacity:1; }
+.bt-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+  background:#dcfce7; color:#166534; border:2px solid #86efac;
+  opacity:0; transition:opacity 0.4s;
+}
+.bt-badge.visible { opacity:1; }
+
+/* Source buttons */
+.src-row { display:flex; justify-content:center; gap:8px; margin-bottom:8px; }
+.src-btn {
+  padding:6px 16px; border-radius:20px; border:2px solid #e2e8f0;
+  background:#f8fafc; color:#64748b; font-size:13px; font-weight:600;
+  cursor:pointer; transition:all 0.2s;
+}
+.src-btn.active { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.src-hint { font-size:11px; color:#94a3b8; margin-bottom:12px; }
+
+/* Controls */
+.controls { display:flex; justify-content:center; gap:10px; margin-bottom:14px; }
+.btn-start, .btn-stop, .btn-clear {
+  padding:10px 24px; border-radius:10px; border:none;
+  font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s;
+}
+.btn-start { background:#2563eb; color:white; }
+.btn-start:hover:not(:disabled) { background:#1d4ed8; }
+.btn-start:disabled { background:#94a3b8; cursor:not-allowed; }
+.btn-stop  { background:#ef4444; color:white; }
+.btn-stop:hover:not(:disabled)  { background:#dc2626; }
+.btn-stop:disabled { background:#fca5a5; cursor:not-allowed; }
+.btn-clear { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+.btn-clear:hover { background:#e2e8f0; }
+
+/* Status */
+#status {
+  font-size:13px; color:#64748b; margin-bottom:8px; min-height:20px;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.dot { width:8px; height:8px; border-radius:50%; background:#e2e8f0; }
+.dot.active { background:#22c55e; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Live indicator — shows when Web Speech API is capturing */
+#liveStatus {
+  font-size:12px; color:#64748b; margin-bottom:6px; min-height:18px;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.live-dot {
+  width:7px; height:7px; border-radius:50%; background:#ef4444;
+  animation: livepulse 0.8s infinite;
+}
+@keyframes livepulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+/* Chunk timer progress */
+.chunk-bar-wrap {
+  height:3px; background:#f1f5f9; border-radius:4px;
+  margin-bottom:4px; overflow:hidden;
+}
+.chunk-bar { height:3px; width:0%; background:#2563eb; border-radius:4px; transition:width 0.1s linear; }
+
+/* Audio level meter */
+.level-bar-wrap {
+  height:4px; background:#f1f5f9; border-radius:4px;
+  margin-bottom:14px; overflow:hidden;
+}
+.level-bar { height:4px; width:0%; background:#2563eb; border-radius:4px; transition:width 0.1s; }
+
+/* ML pipeline tags */
+.ml-bar {
+  font-size:10px; color:#94a3b8; margin-bottom:12px;
+  display:flex; justify-content:center; gap:6px; flex-wrap:wrap;
+}
+.ml-tag {
+  background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+  padding:2px 8px; font-family:monospace;
+}
+
+/* Transcript panels */
+.panels { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:600px){ .panels{ grid-template-columns:1fr; } }
+.panel-label {
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.8px; color:#94a3b8; margin-bottom:6px; text-align:left;
+}
+.transcript-area {
+  height:340px; overflow-y:auto; border:1px solid #e2e8f0;
+  border-radius:10px; padding:10px; background:#fafafa; text-align:left;
+}
+
+/* Speaker blocks */
+.speaker-block { margin-bottom:10px; }
+.speaker-meta { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+.speaker-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+.speaker-ts    { font-size:10px; color:#94a3b8; font-family:monospace; }
+.speaker-tier  {
+  font-size:9px; color:#94a3b8; font-family:monospace;
+  background:#f1f5f9; border:1px solid #e2e8f0; border-radius:4px;
+  padding:1px 5px;
+}
+.speaker-bubble {
+  padding:7px 11px; border-radius:0 10px 10px 10px;
+  font-size:14px; line-height:1.55; display:inline-block;
+  max-width:100%; word-break:break-word;
+}
+.interim-block .speaker-bubble {
+  opacity:0.55; border-style:dashed; border-width:1px;
+}
+
+/* LIVE block (Web Speech API interim) */
+.live-block .speaker-bubble {
+  opacity:0.70; border-style:dotted; border-width:1px;
+  animation: livefade 1.5s ease-in-out infinite;
+}
+@keyframes livefade { 0%,100%{opacity:0.70} 50%{opacity:0.50} }
+.live-tag {
+  font-size:9px; font-weight:700; color:#ef4444;
+  background:#fee2e2; border:1px solid #fca5a5;
+  border-radius:4px; padding:1px 5px; text-transform:uppercase;
+}
+
+/* RTL support */
+.rtl-bubble { direction: rtl; text-align: right; unicode-bidi: embed; }
+
+/* Speaker colours — 8 slots */
+.s0 .speaker-label{color:#2563eb;} .s0 .speaker-bubble{background:#dbeafe;color:#1e3a8a;border:1px solid #bfdbfe;}
+.s1 .speaker-label{color:#16a34a;} .s1 .speaker-bubble{background:#dcfce7;color:#14532d;border:1px solid #bbf7d0;}
+.s2 .speaker-label{color:#d97706;} .s2 .speaker-bubble{background:#fef3c7;color:#78350f;border:1px solid #fde68a;}
+.s3 .speaker-label{color:#dc2626;} .s3 .speaker-bubble{background:#fee2e2;color:#7f1d1d;border:1px solid #fecaca;}
+.s4 .speaker-label{color:#7c3aed;} .s4 .speaker-bubble{background:#ede9fe;color:#3b0764;border:1px solid #ddd6fe;}
+.s5 .speaker-label{color:#0891b2;} .s5 .speaker-bubble{background:#cffafe;color:#164e63;border:1px solid #a5f3fc;}
+.s6 .speaker-label{color:#db2777;} .s6 .speaker-bubble{background:#fce7f3;color:#831843;border:1px solid #fbcfe8;}
+.s7 .speaker-label{color:#65a30d;} .s7 .speaker-bubble{background:#ecfccb;color:#365314;border:1px solid #d9f99d;}
+.sx .speaker-label{color:#64748b;} .sx .speaker-bubble{background:#f1f5f9;color:#1e293b;border:1px solid #e2e8f0;}
+
+/* Word diff */
+.word-removed {
+  background:#fee2e2; color:#b91c1c; text-decoration:line-through;
+  border-radius:3px; padding:1px 3px; margin:0 1px;
+}
+.word-added {
+  background:#d1fae5; color:#065f46; font-weight:600;
+  border-radius:3px; padding:1px 4px; margin:0 1px;
+  border-bottom:2px solid #10b981; position:relative; cursor:help;
+}
+.word-added::after {
+  content:"✨ AI corrected"; position:absolute; bottom:100%; left:50%;
+  transform:translateX(-50%); background:#1e293b; color:white;
+  font-size:10px; padding:2px 7px; border-radius:5px; white-space:nowrap;
+  opacity:0; pointer-events:none; transition:opacity 0.15s; z-index:10; margin-bottom:4px;
+}
+.word-added:hover::after { opacity:1; }
+
+.empty-hint {
+  color:#94a3b8; font-style:italic; font-size:13px;
+  display:flex; align-items:center; justify-content:center; height:80px;
+}
+
+/* Stats bar */
+.stats-bar {
+  font-size:10px; color:#94a3b8; margin-top:10px;
+  display:flex; justify-content:center; gap:12px; flex-wrap:wrap;
+}
+.stat-item { font-family:monospace; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Live Speech Translator</h2>
+  <p class="subtitle">Arabic · Hindi · English — real-time speaker identification</p>
+
+  <div class="lang-row">
+    <div class="lang-badge" id="langBadge">🌐 Auto-Detect</div>
+    <div class="ai-badge"  id="aiBadge">✨ AI Corrected</div>
+    <div class="bt-badge"  id="btBadge">🔄 Back-validated</div>
+  </div>
+
+  <div class="ml-bar">
+    <span class="ml-tag">🔊 EnhancedVAD</span>
+    <span class="ml-tag">🧬 MFCC+Pitch</span>
+    <span class="ml-tag">📍 Within-Blob Diarisation</span>
+    <span class="ml-tag">🎙️ gpt-4o-transcribe</span>
+    <span class="ml-tag">⚡ Domain Pre-Fix</span>
+    <span class="ml-tag">🤖 gpt-4.1 CoT</span>
+    <span class="ml-tag">🌐 gpt-4.1-mini</span>
+  </div>
+
+  <div class="src-row">
+    <button id="srcMic" class="src-btn active" onclick="setSource('mic')">Microphone</button>
+    <button id="srcTab" class="src-btn"        onclick="setSource('tab')">🖥️ System Audio</button>
+  </div>
+  <div class="src-hint" id="srcHint">Use <b>System Audio</b> when playing a recording to avoid mic echo</div>
+
+  <!-- Chunk send progress bar (fills every 8 seconds) -->
+  <div class="chunk-bar-wrap"><div class="chunk-bar" id="chunkBar"></div></div>
+
+  <!-- Audio level meter -->
+  <div class="level-bar-wrap"><div class="level-bar" id="levelBar"></div></div>
+
+  <div class="controls">
+    <button class="btn-start" id="startBtn" onclick="startListening()">Start</button>
+    <button class="btn-stop"  id="stopBtn"  onclick="stopListening()" disabled>⏹ Stop</button>
+    <button class="btn-clear" onclick="clearAll()">🗑 Clear</button>
+  </div>
+
+  <div id="status"><span class="dot" id="dot"></span><span id="statusText"></span></div>
+  <div id="liveStatus"></div>
+
+  <div class="panels">
+    <div>
+      <div class="panel-label">🗣 Original Speech</div>
+      <div class="transcript-area" id="speechArea">
+        <div class="empty-hint">Speech will appear here…</div>
+      </div>
+    </div>
+    <div>
+      <div class="panel-label">🌐 English Translation</div>
+      <div class="transcript-area" id="translationArea">
+        <div class="empty-hint">Translation will appear here…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <span class="stat-item" id="statSegs">segs: 0</span>
+    <span class="stat-item" id="statCorr">corrections: 0</span>
+    <span class="stat-item" id="statSpk">speakers: 0</span>
+    <span class="stat-item" id="statTier">tier: —</span>
+    <span class="stat-item" id="statLive">live: off</span>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let ws, stream, mediaRecorder;
+let audioSource  = 'mic';
+let audioCtx, analyser, levelTimer;
+let isRecording  = false;
+
+let finalBlocks     = [];
+let interimSegments = [];
+const lastBlockTime = {};
+const MERGE_WINDOW_MS = 3000;
+
+const _sentFingerprints = new Set();
+let statsSegs = 0, statsCorr = 0, statsSpk = new Set();
+
+// Chunk timer
+const CHUNK_MS    = 8000;   // 🔥 8 seconds — better sentence completion, less hallucination
+let chunkTimer    = null;
+let chunkStart    = 0;
+
+// Web Speech API (live interim)
+let speechRecognition = null;
+let wsApiSupported    = false;
+let liveText          = '';   // current interim from Web Speech API
+const WS_LANG_MAP     = { ar: 'ar-SA', hi: 'hi-IN', en: 'en-US' };
+let currentLang       = 'ar'; // default; updated when backend sends language
+
+// ── Fingerprint (dedup) ────────────────────────────────────────────────────────
+async function _blobFingerprint(arrayBuf) {
+  try {
+    const slice   = arrayBuf.slice(0, Math.min(4096, arrayBuf.byteLength));
+    const hashBuf = await crypto.subtle.digest('SHA-256', slice);
+    const hex = Array.from(new Uint8Array(hashBuf))
+      .map(b => b.toString(16).padStart(2,'0')).join('');
+    return `${arrayBuf.byteLength}|${hex}`;
+  } catch {
+    const view = new Uint8Array(arrayBuf, 0, Math.min(128, arrayBuf.byteLength));
+    let h = arrayBuf.byteLength >>> 0;
+    view.forEach((b, i) => { h = (h ^ (b << (i % 24))) >>> 0; });
+    return `${arrayBuf.byteLength}|${h.toString(16)}`;
+  }
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+function updateStats(segs, corrected) {
+  statsSegs += segs.length;
+  if (corrected) statsCorr++;
+  segs.forEach(s => statsSpk.add(s.speaker));
+  document.getElementById('statSegs').textContent = `segs: ${statsSegs}`;
+  document.getElementById('statCorr').textContent = `corrections: ${statsCorr}`;
+  document.getElementById('statSpk').textContent  = `speakers: ${statsSpk.size}`;
+}
+
+// ── Source selection ───────────────────────────────────────────────────────────
+function setSource(src) {
+  audioSource = src;
+  document.getElementById('srcMic').classList.toggle('active', src==='mic');
+  document.getElementById('srcTab').classList.toggle('active', src==='tab');
+  document.getElementById('startBtn').textContent = 'Start';
+  document.getElementById('srcHint').innerHTML = src==='tab'
+    ? '🖥️ Browser will ask you to pick a tab — <b>check "Share audio"</b>'
+    : 'Use <b>System Audio</b> when playing a recording to avoid mic echo';
+}
+
+// ── Language badge ─────────────────────────────────────────────────────────────
+function updateLangBadge(lang) {
+  const el = document.getElementById('langBadge');
+  const labels = { ar:'🇸🇦 Arabic', hi:'🇮🇳 Hindi', en:'🇬🇧 English' };
+  el.textContent = labels[lang] || '🌐 Auto-Detect';
+  el.className   = 'lang-badge' + (lang ? ' '+lang : '');
+  if (lang && lang !== currentLang) {
+    currentLang = lang;
+    // Update Web Speech API language to match detected language
+    _wsSetLanguage(lang);
+  }
+}
+function showAiBadge()  { flashBadge('aiBadge'); }
+function showBtBadge()  { flashBadge('btBadge'); }
+function flashBadge(id) {
+  const el = document.getElementById(id);
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), 3000);
+}
+
+// ── Speaker helpers ────────────────────────────────────────────────────────────
+function speakerClass(n) { return (n>=0&&n<=7) ? `s${n}` : 'sx'; }
+function speakerName(n)  { return `Speaker ${n+1}`; }
+function escHtml(s)      { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Word diff ─────────────────────────────────────────────────────────────────
+function renderDiff(tokens) {
+  if (!tokens||!tokens.length) return '';
+  return tokens.map(t => {
+    if (t.type==='same')    return `<span>${escHtml(t.text)} </span>`;
+    if (t.type==='removed') return `<span class="word-removed">${escHtml(t.text)}</span> `;
+    if (t.type==='added')   return `<span class="word-added">${escHtml(t.text)}</span> `;
+    return '';
+  }).join('');
+}
+
+// ── RTL ───────────────────────────────────────────────────────────────────────
+const RTL_LANGS = new Set(['ar', 'he', 'fa', 'ur']);
+
+// ── Render panels ─────────────────────────────────────────────────────────────
+function renderAreas() {
+  renderArea('speechArea',      'original',    'originalDiff',    true);
+  renderArea('translationArea', 'translation', 'translationDiff', false);
+}
+
+function renderArea(areaId, textKey, diffKey, isOriginalPanel) {
+  const area = document.getElementById(areaId);
+  let html = '';
+
+  // Committed final blocks
+  for (const b of finalBlocks) {
+    const cls     = speakerClass(b.speaker);
+    const content = (b.corrected && b[diffKey] && b[diffKey].length)
+      ? renderDiff(b[diffKey]) : escHtml(b[textKey]||'');
+    const ts      = b.timestamp ? `<span class="speaker-ts">[${b.timestamp}]</span>` : '';
+    const tier    = '';  // tier hidden
+    const rtlCls  = (isOriginalPanel && RTL_LANGS.has(b.lang)) ? ' rtl-bubble' : '';
+    html += `
+      <div class="speaker-block ${cls}">
+        <div class="speaker-meta">
+          <span class="speaker-label">${speakerName(b.speaker)}</span>${ts}${tier}
+        </div>
+        <div class="speaker-bubble${rtlCls}">${content}</div>
+      </div>`;
+  }
+
+  // Backend interim segments (5-second backend result, uncorrected)
+  for (const seg of interimSegments) {
+    const cls    = speakerClass(seg.speaker);
+    const ts     = seg.timestamp ? `<span class="speaker-ts">[${seg.timestamp}]</span>` : '';
+    const rtlCls = (isOriginalPanel && RTL_LANGS.has(seg.lang)) ? ' rtl-bubble' : '';
+    html += `
+      <div class="speaker-block interim-block ${cls}">
+        <div class="speaker-meta">
+          <span class="speaker-label">${speakerName(seg.speaker)}</span>${ts}
+        </div>
+        <div class="speaker-bubble${rtlCls}">${escHtml(seg[textKey]||'')}</div>
+      </div>`;
+  }
+
+  // ── Live interim from Web Speech API ─────────────────────────────────────
+  // Only shown in the speech area (original panel); translation area stays empty
+  // for live text since we don't translate live transcripts.
+  if (isOriginalPanel && liveText) {
+    const rtlCls = RTL_LANGS.has(currentLang) ? ' rtl-bubble' : '';
+    html += `
+      <div class="speaker-block live-block sx">
+        <div class="speaker-meta">
+          <span class="speaker-label">🎙 Live</span>
+          <span class="live-tag">LIVE</span>
+        </div>
+        <div class="speaker-bubble${rtlCls}">${escHtml(liveText)}</div>
+      </div>`;
+  }
+
+  area.innerHTML = html || `<div class="empty-hint">${areaId==='speechArea'?'Speech':'Translation'} will appear here…</div>`;
+  area.scrollTop = area.scrollHeight;
+}
+
+// ── Merge final segments ───────────────────────────────────────────────────────
+function mergeFinalSegments(segments, corrected) {
+  const now = Date.now();
+  for (const seg of segments) {
+    if (corrected) {
+      // Find the most recent uncorrected block for this speaker and update it
+      let found = false;
+      for (let i = finalBlocks.length-1; i >= 0; i--) {
+        if (finalBlocks[i].speaker === seg.speaker && !finalBlocks[i].corrected) {
+          finalBlocks[i].original        = seg.original;
+          finalBlocks[i].translation     = seg.translation;
+          finalBlocks[i].originalDiff    = seg.original_diff    || null;
+          finalBlocks[i].translationDiff = seg.translation_diff || null;
+          finalBlocks[i].corrected       = true;
+          finalBlocks[i].tier            = seg.tier || null;
+          finalBlocks[i].lang            = seg.lang || finalBlocks[i].lang;
+          found = true;
+          break;
+        }
+      }
+      // No uncorrected block found — backend sends only corrected messages,
+      // so create a new corrected block directly instead of discarding.
+      if (!found) {
+        finalBlocks.push({
+          speaker:         seg.speaker,
+          timestamp:       seg.timestamp || '',
+          original:        seg.original,
+          translation:     seg.translation,
+          lang:            seg.lang || null,
+          corrected:       true,
+          tier:            seg.tier || null,
+          originalDiff:    seg.original_diff    || null,
+          translationDiff: seg.translation_diff || null,
+        });
+        lastBlockTime[seg.speaker] = now;
+      }
+    } else {
+      // Deduplicate
+      const last = finalBlocks[finalBlocks.length-1];
+      if (last && last.speaker===seg.speaker && last.original===seg.original) continue;
+
+      // Merge within time window
+      const timeSinceLast = now - (lastBlockTime[seg.speaker] || 0);
+      let targetBlock = null;
+      if (timeSinceLast < MERGE_WINDOW_MS) {
+        for (let i = finalBlocks.length-1; i >= 0; i--) {
+          if (finalBlocks[i].speaker === seg.speaker) {
+            targetBlock = finalBlocks[i]; break;
+          }
+          if (finalBlocks.length-1-i > 4) break;
+        }
+      }
+
+      if (targetBlock) {
+        targetBlock.original    += ' ' + seg.original;
+        targetBlock.translation += ' ' + seg.translation;
+        targetBlock.corrected    = false;
+        targetBlock.lang         = seg.lang || targetBlock.lang;
+        targetBlock.originalDiff    = null;
+        targetBlock.translationDiff = null;
+      } else {
+        finalBlocks.push({
+          speaker:         seg.speaker,
+          timestamp:       seg.timestamp || '',
+          original:        seg.original,
+          translation:     seg.translation,
+          lang:            seg.lang || null,
+          originalDiff:    null,
+          translationDiff: null,
+          corrected:       false,
+          tier:            null,
+        });
+      }
+      lastBlockTime[seg.speaker] = now;
+      // When backend result arrives, clear the live interim
+      liveText = '';
+    }
+  }
+}
+
+// ── Audio level meter ──────────────────────────────────────────────────────────
+function startLevelMeter(mediaStream) {
+  try {
+    audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    analyser  = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    const src = audioCtx.createMediaStreamSource(mediaStream);
+    src.connect(analyser);
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    const bar = document.getElementById('levelBar');
+    levelTimer = setInterval(() => {
+      analyser.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b)=>a+b,0)/buf.length;
+      bar.style.width = Math.min(100, avg * 1.5) + '%';
+    }, 80);
+  } catch(e) { /* ignore */ }
+}
+function stopLevelMeter() {
+  clearInterval(levelTimer);
+  if (audioCtx) audioCtx.close().catch(()=>{});
+  document.getElementById('levelBar').style.width = '0%';
+}
+
+// ── Chunk progress bar ────────────────────────────────────────────────────────
+// Shows how far through the current 5-second recording cycle we are.
+function startChunkBar() {
+  chunkStart = Date.now();
+  if (chunkTimer) clearInterval(chunkTimer);
+  const bar = document.getElementById('chunkBar');
+  chunkTimer = setInterval(() => {
+    if (!isRecording) { bar.style.width = '0%'; clearInterval(chunkTimer); return; }
+    const pct = Math.min(100, ((Date.now() - chunkStart) / CHUNK_MS) * 100);
+    bar.style.width = pct + '%';
+    if (pct >= 100) chunkStart = Date.now();   // reset for next cycle
+  }, 100);
+}
+function stopChunkBar() {
+  clearInterval(chunkTimer);
+  document.getElementById('chunkBar').style.width = '0%';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// WEB SPEECH API — live interim display while speaking
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function setupWebSpeech() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    document.getElementById('statLive').textContent = 'live: unsupported';
+    return false;
+  }
+
+  speechRecognition = new SpeechRec();
+  speechRecognition.continuous     = true;
+  speechRecognition.interimResults = true;
+  speechRecognition.maxAlternatives = 1;
+  speechRecognition.lang = WS_LANG_MAP[currentLang] || 'ar-SA';
+
+  speechRecognition.onresult = (event) => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (!event.results[i].isFinal) {
+        interim += t;
+      }
+      // isFinal results are committed — we rely on backend for these, so discard
+    }
+    liveText = interim;
+    renderAreas();
+  };
+
+  speechRecognition.onerror = (e) => {
+    if (e.error === 'not-allowed') {
+      document.getElementById('statLive').textContent = 'live: blocked';
+    }
+    // Other errors are transient — let onend restart it
+  };
+
+  speechRecognition.onend = () => {
+    if (isRecording) {
+      // Auto-restart to keep continuous capture
+      try { speechRecognition.start(); } catch(e) {}
+    } else {
+      liveText = '';
+      renderAreas();
+    }
+  };
+
+  document.getElementById('statLive').textContent = 'live: ready';
+  return true;
+}
+
+function _wsSetLanguage(lang) {
+  if (!speechRecognition) return;
+  const newLang = WS_LANG_MAP[lang] || 'ar-SA';
+  if (speechRecognition.lang === newLang) return;
+  // Restart with new language
+  try {
+    speechRecognition.stop();
+    speechRecognition.lang = newLang;
+    if (isRecording) setTimeout(() => {
+      try { speechRecognition.start(); } catch(e) {}
+    }, 300);
+  } catch(e) {}
+}
+
+function startWebSpeech() {
+  if (!speechRecognition) {
+    wsApiSupported = setupWebSpeech();
+  }
+  if (speechRecognition) {
+    try {
+      speechRecognition.lang = WS_LANG_MAP[currentLang] || 'ar-SA';
+      speechRecognition.start();
+      document.getElementById('statLive').textContent = 'live: on';
+      document.getElementById('liveStatus').innerHTML =
+        '<span class="live-dot"></span><span style="font-size:11px;color:#64748b">Live transcription active</span>';
+    } catch(e) {
+      // already started or not allowed — ignore
+    }
+  }
+}
+
+function stopWebSpeech() {
+  if (speechRecognition) {
+    try { speechRecognition.stop(); } catch(e) {}
+  }
+  liveText = '';
+  document.getElementById('liveStatus').innerHTML = '';
+  document.getElementById('statLive').textContent = 'live: off';
+}
+
+// ── WebSocket + recording ──────────────────────────────────────────────────────
+async function startListening() {
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled  = false;
+  document.getElementById('dot').classList.add('active');
+  document.getElementById('statusText').innerText = 'Connecting…';
+  updateLangBadge(null);
+  _sentFingerprints.clear();
+  statsSegs = statsCorr = 0; statsSpk.clear();
+  isRecording = true;
+
+  ws = new WebSocket('ws://127.0.0.1:8000/listen-auto');
+  ws.onopen = () => {
+    document.getElementById('statusText').innerText = 'Listening…';
+    console.log('WS connected');
+  };
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.error) { document.getElementById('statusText').innerText = '❌ ' + data.error; return; }
+    if (data.type === 'utterance_end') return;
+    if (data.detected_language) updateLangBadge(data.detected_language);
+
+    const segments   = data.segments || [];
+    const corrected  = data.corrected || false;
+    const detectedLang = data.detected_language || null;
+    if (!segments.length) return;
+
+    segments.forEach(s => { if (!s.lang && detectedLang) s.lang = detectedLang; });
+
+    if (segments[0] && segments[0].tier) {
+      document.getElementById('statTier').textContent = `tier: ${segments[0].tier}`;
+    }
+
+    if (data.is_final) {
+      mergeFinalSegments(segments, corrected);
+      interimSegments = [];
+      if (corrected) {
+        if (segments.some(s => s.was_changed)) showAiBadge();
+        if (segments.some(s => s.tier === 'full_cot')) showBtBadge();
+      }
+    } else {
+      const newText = segments.map(s => s.original).join('|');
+      const curText = interimSegments.map(s => s.original).join('|');
+      if (newText !== curText) interimSegments = segments;
+    }
+    updateStats(segments, corrected);
+    renderAreas();
+  };
+
+  ws.onerror = () => { document.getElementById('statusText').innerText = '❌ Connection error'; };
+  ws.onclose = () => { document.getElementById('dot').classList.remove('active'); };
+
+  try {
+    if (audioSource === 'tab') {
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: { echoCancellation:false, noiseSuppression:false, sampleRate:16000 }
+      });
+      const audioTrack = displayStream.getAudioTracks()[0];
+      if (!audioTrack) {
+        alert('No audio track. Check "Share audio" when picking a tab.');
+        stopListening(); return;
+      }
+      displayStream.getVideoTracks().forEach(t => t.stop());
+      stream = new MediaStream([audioTrack]);
+      document.getElementById('statusText').innerText = '🖥️ Capturing system audio…';
+    } else {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation:true, noiseSuppression:true, sampleRate:16000 }
+      });
+    }
+
+    startLevelMeter(stream);
+    startChunkBar();
+
+    // ── Start Web Speech API for live interim display ──────────────────────
+    if (audioSource === 'mic') {
+      startWebSpeech();
+    }
+
+    const mime = ['audio/webm;codecs=opus','audio/webm']
+      .find(m => MediaRecorder.isTypeSupported(m)) || '';
+    let cycleActive = true;
+
+    function runChunkCycle() {
+      if (!cycleActive || !stream || !stream.active) return;
+      const chunks = [];
+      const rec = new MediaRecorder(stream, mime ? {mimeType:mime} : {});
+
+      rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        if (chunks.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
+          const blob = new Blob(chunks, {type: rec.mimeType || 'audio/webm'});
+          blob.arrayBuffer().then(async buf => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            const fp = await _blobFingerprint(buf);
+            if (_sentFingerprints.has(fp)) {
+              console.debug(`[dedup] skipped duplicate blob`);
+              return;
+            }
+            _sentFingerprints.add(fp);
+            ws.send(buf);
+          });
+        }
+        if (cycleActive) {
+          chunkStart = Date.now();   // reset chunk progress bar
+          runChunkCycle();
+        }
+      };
+
+      rec.start();
+      setTimeout(() => { if (rec.state !== 'inactive') rec.stop(); }, CHUNK_MS);
+      mediaRecorder = rec;
+    }
+
+    runChunkCycle();
+    stream.getTracks()[0].onended = () => stopListening();
+    window._stopCycle = () => { cycleActive = false; };
+
+  } catch(err) {
+    if (err.name==='NotAllowedError' && audioSource==='tab') {
+      alert('Screen sharing cancelled. Try again and select the tab playing audio.');
+    } else {
+      alert('Audio capture failed: ' + err.message);
+    }
+    stopListening();
+  }
+}
+
+function stopListening() {
+  isRecording = false;
+  stopWebSpeech();
+  if (window._stopCycle) { window._stopCycle(); window._stopCycle = null; }
+  if (mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop();
+  stopLevelMeter();
+  stopChunkBar();
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (ws && ws.readyState===WebSocket.OPEN) ws.close();
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled  = true;
+  document.getElementById('dot').classList.remove('active');
+  document.getElementById('statusText').innerText = 'Stopped';
+  interimSegments = [];
+  liveText = '';
+  renderAreas();
+  setTimeout(() => document.getElementById('statusText').innerText='', 2000);
+}
+
+function clearAll() {
+  finalBlocks = [];
+  interimSegments = [];
+  liveText = '';
+  _sentFingerprints.clear();
+  Object.keys(lastBlockTime).forEach(k => delete lastBlockTime[k]);
+  statsSegs = statsCorr = 0; statsSpk.clear();
+  ['statSegs','statCorr','statSpk'].forEach(id => {
+    document.getElementById(id).textContent = id.replace('stat','').toLowerCase() + ': 0';
+  });
+  document.getElementById('statTier').textContent = 'tier: —';
+  renderAreas();
+}
+
+window.startListening = startListening;
+window.stopListening  = stopListening;
+window.clearAll       = clearAll;
+window.setSource      = setSource;
+</script>
+</body>
+</html>
