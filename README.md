@@ -17,7 +17,9 @@ It helps in:
 - 🏥 Medical transcription  
 - 📋 Clinical documentation  
 - 🤖 Healthcare automation  
-- 🎙️ Voice-based medical systems  
+- 🎙️ Voice-based medical systems
+
+- 
 
 ---
 
