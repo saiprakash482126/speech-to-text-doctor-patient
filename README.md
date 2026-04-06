@@ -19,7 +19,7 @@ It helps in:
 - 🤖 Healthcare automation  
 - 🎙️ Voice-based medical systems
 
-- 
+  <img width="259" height="326" alt="Screenshot 2026-04-06 110046" src="https://github.com/user-attachments/assets/032fe76c-fe8f-4ed7-9c38-5c2e08ea026c" />
 
 ---
 
@@ -29,7 +29,8 @@ It helps in:
 - 👥 Speaker diarization (Doctor / Patient)  
 - ✂️ Audio extraction from video  
 - 🔄 Chunk-based processing for long audio  
-- ⚡ FastAPI backend  
+- ⚡ FastAPI backend
+
 - 📄 Structured transcript output  
 
 ---
