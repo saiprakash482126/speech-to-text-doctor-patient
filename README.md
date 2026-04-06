@@ -18,23 +18,12 @@ It helps in:
 
 ## 🔥 Features
 
-- 🎙️ Speech-to-text transcription
-- 👥 Speaker diarization (Doctor / Patient)
-- ✂️ Audio extraction from video
-- 🔄 Chunk-based processing for long audio
-- ⚡ FastAPI backend
-- 📄 Structured transcript output
-
----
-
-## 🏗️ Workflow
-
-1. Input audio/video file  
-2. Extract audio  
-3. Split into chunks  
-4. Transcribe speech  
-5. Identify speakers  
-6. Generate final transcript  
+- 🎙️ Speech-to-text transcription  
+- 👥 Speaker diarization (Doctor / Patient)  
+- ✂️ Audio extraction from video  
+- 🔄 Chunk-based processing for long audio  
+- ⚡ FastAPI backend  
+- 📄 Structured transcript output  
 
 ---
 
@@ -48,10 +37,11 @@ It helps in:
 
 ---
 
-## 📦 Installation
+## 📦 Setup
 
-### 1. Clone the repository
+1. Install Python 3.9 or higher  
+
+2. Install required packages:
 
 ```bash
-git clone https://github.com/saiprakash482126/speech-to-text-doctor-patient.git
-cd speech-to-text-doctor-patient
+pip install -r requirements.txt
