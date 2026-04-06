@@ -1,18 +1,23 @@
-# 🎤 Speech-to-Text Doctor Patient
+# 🎤 Speech-to-Text Doctor–Patient — End-to-End Medical Transcription System
 
-An AI-powered system that converts doctor–patient conversations into structured text with speaker identification.
+### 🔥 AI-Powered Transcription | Speaker Diarization | FastAPI | Real-Time Processing
+
+[![Python](https://img.shields.io/badge/Python-3.9+-blue)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
+[![Status](https://img.shields.io/badge/Status-Active-success)]()
+[![AI Models](https://img.shields.io/badge/AI-Whisper%20%7C%20Deepgram-orange)]()
 
 ---
 
 ## 🚀 Overview
 
-This project processes audio or video conversations between a doctor and a patient and converts them into text using speech recognition and speaker diarization.
+**Speech-to-Text Doctor–Patient** is an AI-powered system that converts medical conversations into structured text with speaker identification.
 
 It helps in:
-- Medical transcription
-- Clinical documentation
-- Healthcare automation
-- Voice-based medical systems
+- 🏥 Medical transcription  
+- 📋 Clinical documentation  
+- 🤖 Healthcare automation  
+- 🎙️ Voice-based medical systems  
 
 ---
 
@@ -45,3 +50,9 @@ It helps in:
 
 ```bash
 pip install -r requirements.txt
+
+▶️ How to Use
+Run the FastAPI server
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+Open in browser
+http://localhost:8000/docs
